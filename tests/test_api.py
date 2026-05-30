@@ -46,6 +46,14 @@ class APITests(unittest.TestCase):
         self.assertGreaterEqual(len(payload["trace"]), 5)
         self.assertIn("Sources:", payload["answer"])
 
+    def test_dashboard_serves_static_html(self):
+        client = TestClient(app)
+
+        response = client.get("/")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("Self-Healing RAG Pipeline", response.text)
+
 
 if __name__ == "__main__":
     unittest.main()

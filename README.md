@@ -103,7 +103,15 @@ Both the CLI and API use `data/index/chunks.jsonl` by default. Pass `--index` to
 
 ## Frontend
 
-The frontend is a React, Vite, and TypeScript app in `frontend/`.
+The default frontend is served directly by FastAPI and does not require npm:
+
+```bash
+uvicorn self_healing_rag.api:app --reload
+```
+
+Then open `http://127.0.0.1:8000`.
+
+There is also an optional React, Vite, and TypeScript app in `frontend/`.
 
 ```bash
 cd frontend
@@ -112,8 +120,6 @@ npm run dev
 ```
 
 By default, the frontend calls the backend at `http://127.0.0.1:8000`. You can override that with `VITE_API_BASE_URL`.
-
-If `npm install` fails with `UNABLE_TO_VERIFY_LEAF_SIGNATURE` on a managed laptop, configure npm to trust your company's root certificate instead of disabling SSL verification.
 
 ## Development Checks
 

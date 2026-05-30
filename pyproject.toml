@@ -33,7 +33,9 @@ self-healing-rag = "self_healing_rag.cli:app"
 [tool.setuptools.packages.find]
 where = ["src"]
 
+[tool.setuptools.package-data]
+self_healing_rag = ["web/*"]
+
 [tool.ruff]
 line-length = 100
 target-version = "py310"
-

@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Self-Healing RAG</title>
+    <link rel="stylesheet" href="/assets/styles.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">LangGraph Control Surface</p>
+          <h1>Self-Healing RAG Pipeline</h1>
+        </div>
+        <div class="status-pill" id="status">Ready</div>
+      </header>
+
+      <section class="alert hidden" id="error" role="alert"></section>
+
+      <section class="workspace">
+        <div class="controls">
+          <form id="ingest-form" class="panel-form">
+            <label for="input-path">Document path</label>
+            <div class="action-row">
+              <input id="input-path" value="data/sample_docs" />
+              <button type="submit">Ingest</button>
+            </div>
+          </form>
+
+          <form id="ask-form" class="panel-form">
+            <label for="question">Question</label>
+            <textarea id="question" rows="7">What makes this RAG pipeline self-healing?</textarea>
+            <button type="submit">Ask</button>
+          </form>
+        </div>
+
+        <section class="answer-panel">
+          <div class="panel-header">
+            <div>
+              <p class="eyebrow">Grounded Response</p>
+              <h2>Answer</h2>
+            </div>
+            <span class="verdict" id="verdict">No verdict</span>
+          </div>
+          <p id="answer" class="answer-text muted">Run a question to see the critic-reviewed answer.</p>
+        </section>
+      </section>
+
+      <section class="metrics">
+        <article>
+          <span>Attempts</span>
+          <strong id="attempts">0</strong>
+        </article>
+        <article>
+          <span>Sources</span>
+          <strong id="source-count">0</strong>
+        </article>
+        <article>
+          <span>Trace Events</span>
+          <strong id="trace-count">0</strong>
+        </article>
+      </section>
+
+      <section class="details">
+        <article class="detail-panel">
+          <div class="panel-header compact">
+            <div>
+              <p class="eyebrow">Critic</p>
+              <h2>Verdict</h2>
+            </div>
+          </div>
+          <dl id="critique" class="definition-list">
+            <dt>Reason</dt>
+            <dd class="muted">Pending</dd>
+          </dl>
+        </article>
+
+        <article class="detail-panel">
+          <div class="panel-header compact">
+            <div>
+              <p class="eyebrow">Retrieval</p>
+              <h2>Sources</h2>
+            </div>
+          </div>
+          <ul id="sources" class="source-list">
+            <li class="muted">Pending</li>
+          </ul>
+        </article>
+      </section>
+
+      <section class="trace-panel">
+        <div class="panel-header compact">
+          <div>
+            <p class="eyebrow">LangGraph</p>
+            <h2>Workflow Trace</h2>
+          </div>
+        </div>
+        <ol id="trace" class="trace-list">
+          <li class="muted">Pending</li>
+        </ol>
+      </section>
+    </main>
+
+    <script src="/assets/app.js"></script>
+  </body>
+</html>

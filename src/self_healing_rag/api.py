@@ -1,11 +1,17 @@
+from pathlib import Path
+
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from self_healing_rag.config import settings
 from self_healing_rag.graph import ask_with_trace
 from self_healing_rag.index import build_local_index
 
+
+WEB_DIR = Path(__file__).parent / "web"
 
 app = FastAPI(
     title="Self-Healing RAG API",
@@ -23,6 +29,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.mount("/assets", StaticFiles(directory=WEB_DIR), name="assets")
 
 
 class IngestRequest(BaseModel):
@@ -72,6 +80,11 @@ class AskResponse(BaseModel):
     retrieved_docs: list[RetrievedDocumentResponse]
     critique: CritiqueResponse | None
     trace: list[TraceEventResponse]
+
+
+@app.get("/", include_in_schema=False)
+def dashboard() -> FileResponse:
+    return FileResponse(WEB_DIR / "index.html")
 
 
 @app.get("/health")
