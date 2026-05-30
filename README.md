@@ -99,6 +99,18 @@ curl -X POST http://127.0.0.1:8000/ask \
 
 The `/ask` response includes the final answer, sources, critic verdict, attempt count, and workflow trace for the frontend.
 
+## Frontend
+
+The frontend is a React, Vite, and TypeScript app in `frontend/`.
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+By default, the frontend calls the backend at `http://127.0.0.1:8000`. You can override that with `VITE_API_BASE_URL`.
+
 ## Development Checks
 
 ```bash

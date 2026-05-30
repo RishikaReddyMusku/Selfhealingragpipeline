@@ -36,6 +36,7 @@ Build a resume-quality self-healing RAG pipeline that can retrieve documents, ge
 
 - Add FastAPI endpoint.
 - Add a simple CLI command.
+- Add a React frontend for the RAG control surface.
 - Include sample documents and demo questions.
 
 ### 5. Evaluation
