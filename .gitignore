@@ -10,5 +10,5 @@ dist/
 build/
 *.egg-info/
 data/vector_store/
+data/index/
 outputs/
-

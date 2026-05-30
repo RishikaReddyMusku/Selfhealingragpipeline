@@ -1,4 +1,5 @@
 from self_healing_rag.state import Critique, RAGState, RetrievedDocument
+from self_healing_rag.retrieval import retrieve_from_local_index
 
 
 def rewrite_query(state: RAGState) -> RAGState:
@@ -16,34 +17,13 @@ def rewrite_query(state: RAGState) -> RAGState:
 
 
 def retrieve_documents(state: RAGState) -> RAGState:
-    """Retrieve relevant documents from the vector store.
-
-    This is intentionally stubbed for the first commit. The next milestone will
-    replace this with Chroma-backed semantic search.
-    """
+    """Retrieve relevant documents from the local index."""
     query = state.get("rewritten_query", state["question"])
-    docs: list[RetrievedDocument] = [
-        {
-            "content": (
-                "A self-healing RAG pipeline uses critique and retry loops to "
-                "improve weak, unsupported, or incomplete answers."
-            ),
-            "source": "data/sample_docs/self_healing_rag_notes.md",
-            "score": 0.86,
-        },
-        {
-            "content": (
-                "LangGraph can model cyclic workflows where nodes route state "
-                "back to earlier steps when repair is needed."
-            ),
-            "source": "data/sample_docs/self_healing_rag_notes.md",
-            "score": 0.82,
-        },
-    ]
 
     if not query:
         return {"retrieved_docs": []}
 
+    docs: list[RetrievedDocument] = retrieve_from_local_index(query)
     return {"retrieved_docs": docs}
 
 

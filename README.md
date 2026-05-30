@@ -40,11 +40,13 @@ flowchart TD
 
 ## Project Status
 
-This repo currently contains the initial project skeleton:
+This repo currently contains the initial project skeleton and a local ingestion path:
 
 - LangGraph state model
 - Workflow node stubs
 - Routing logic for critic-driven retries
+- Local markdown/text document loading
+- Local chunk index for first-pass retrieval
 - CLI entry point placeholder
 - Sample source document
 - Roadmap for MVP development
@@ -70,13 +72,20 @@ cp .env.example .env
 
 Then add your API key to `.env`.
 
-## Planned Usage
+## Usage
 
 ```bash
-self-healing-rag ask "What makes this RAG pipeline self-healing?"
+self-healing-rag ingest data/sample_docs
+self-healing-rag answer "What makes this RAG pipeline self-healing?"
+```
+
+## Development Checks
+
+```bash
+python3 -m compileall src
+PYTHONPATH=src python3 -m unittest discover -s tests
 ```
 
 ## Resume Pitch
 
 Built a self-healing RAG pipeline using LangGraph that validates generated answers with a critic node and automatically retries retrieval or generation when responses are unsupported, incomplete, or low confidence.
-
