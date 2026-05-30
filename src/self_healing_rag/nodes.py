@@ -1,3 +1,4 @@
+from self_healing_rag.config import settings
 from self_healing_rag.retrieval import retrieve_from_local_index
 from self_healing_rag.state import Critique, RAGState, RetrievedDocument, TraceEvent
 
@@ -45,7 +46,10 @@ def retrieve_documents(state: RAGState) -> RAGState:
             "trace": append_trace(state, "retrieve_documents", "skipped", "Query was empty."),
         }
 
-    docs: list[RetrievedDocument] = retrieve_from_local_index(query)
+    docs: list[RetrievedDocument] = retrieve_from_local_index(
+        query,
+        index_path=state.get("index_path", settings.local_index_path),
+    )
     return {
         "retrieved_docs": docs,
         "trace": append_trace(

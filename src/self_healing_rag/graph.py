@@ -90,16 +90,17 @@ def build_graph():
     return graph.compile()
 
 
-def ask(question: str) -> str:
-    result = ask_with_trace(question)
+def ask(question: str, index_path: str | None = None) -> str:
+    result = ask_with_trace(question, index_path=index_path)
     return result["final_answer"]
 
 
-def ask_with_trace(question: str) -> RAGState:
+def ask_with_trace(question: str, index_path: str | None = None) -> RAGState:
     app = build_graph()
     return app.invoke(
         {
             "question": question,
+            "index_path": index_path or settings.local_index_path,
             "attempt": 0,
             "max_attempts": settings.max_attempts,
             "trace": [],

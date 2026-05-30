@@ -2,6 +2,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
+from self_healing_rag.config import settings
 from self_healing_rag.graph import ask_with_trace
 from self_healing_rag.index import build_local_index
 
@@ -27,7 +28,7 @@ app.add_middleware(
 class IngestRequest(BaseModel):
     input_path: str = Field(..., description="File or directory containing source documents.")
     output_path: str = Field(
-        "data/index/chunks.jsonl",
+        settings.local_index_path,
         description="Path where the local chunk index should be written.",
     )
 
@@ -39,6 +40,10 @@ class IngestResponse(BaseModel):
 
 class AskRequest(BaseModel):
     question: str = Field(..., min_length=1)
+    index_path: str = Field(
+        settings.local_index_path,
+        description="Path to the local chunk index used for retrieval.",
+    )
 
 
 class RetrievedDocumentResponse(BaseModel):
@@ -94,7 +99,7 @@ def ingest_documents(request: IngestRequest) -> IngestResponse:
 
 @app.post("/ask", response_model=AskResponse)
 def ask_question(request: AskRequest) -> AskResponse:
-    result = ask_with_trace(request.question)
+    result = ask_with_trace(request.question, index_path=request.index_path)
     retrieved_docs = result.get("retrieved_docs", [])
     sources = sorted({doc["source"] for doc in retrieved_docs})
 

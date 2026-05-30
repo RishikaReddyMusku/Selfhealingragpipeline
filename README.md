@@ -99,6 +99,8 @@ curl -X POST http://127.0.0.1:8000/ask \
 
 The `/ask` response includes the final answer, sources, critic verdict, attempt count, and workflow trace for the frontend.
 
+Both the CLI and API use `data/index/chunks.jsonl` by default. Pass `--index` to the CLI or `index_path` to `/ask` when using a different local index.
+
 ## Frontend
 
 The frontend is a React, Vite, and TypeScript app in `frontend/`.
@@ -110,6 +112,8 @@ npm run dev
 ```
 
 By default, the frontend calls the backend at `http://127.0.0.1:8000`. You can override that with `VITE_API_BASE_URL`.
+
+If `npm install` fails with `UNABLE_TO_VERIFY_LEAF_SIGNATURE` on a managed laptop, configure npm to trust your company's root certificate instead of disabling SSL verification.
 
 ## Development Checks
 

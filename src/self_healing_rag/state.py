@@ -33,6 +33,7 @@ class TraceEvent(TypedDict):
 class RAGState(TypedDict, total=False):
     question: str
     rewritten_query: str
+    index_path: str
     retrieved_docs: list[RetrievedDocument]
     answer: str
     critique: Critique
