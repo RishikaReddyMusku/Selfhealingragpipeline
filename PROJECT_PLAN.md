@@ -69,4 +69,3 @@ The project is resume-ready when:
 - The final answer includes source references.
 - The README includes setup instructions and architecture.
 - The repo has clear commits showing steady development.
-

@@ -24,6 +24,12 @@ class Critique(TypedDict):
     feedback: str
 
 
+class TraceEvent(TypedDict):
+    step: str
+    status: str
+    detail: str
+
+
 class RAGState(TypedDict, total=False):
     question: str
     rewritten_query: str
@@ -34,4 +40,4 @@ class RAGState(TypedDict, total=False):
     max_attempts: int
     final_answer: str
     needs_clarification: bool
-
+    trace: list[TraceEvent]

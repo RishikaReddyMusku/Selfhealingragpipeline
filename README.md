@@ -79,6 +79,26 @@ self-healing-rag ingest data/sample_docs
 self-healing-rag answer "What makes this RAG pipeline self-healing?"
 ```
 
+## API
+
+```bash
+uvicorn self_healing_rag.api:app --reload
+```
+
+```bash
+curl -X POST http://127.0.0.1:8000/ingest \
+  -H "Content-Type: application/json" \
+  -d '{"input_path": "data/sample_docs"}'
+```
+
+```bash
+curl -X POST http://127.0.0.1:8000/ask \
+  -H "Content-Type: application/json" \
+  -d '{"question": "What makes this RAG pipeline self-healing?"}'
+```
+
+The `/ask` response includes the final answer, sources, critic verdict, attempt count, and workflow trace for the frontend.
+
 ## Development Checks
 
 ```bash

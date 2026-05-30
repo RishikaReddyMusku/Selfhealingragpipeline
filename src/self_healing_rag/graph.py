@@ -14,6 +14,9 @@ from self_healing_rag.state import RAGState
 
 
 def route_after_context_grade(state: RAGState) -> str:
+    if state.get("retrieved_docs"):
+        return "generate_answer"
+
     critique = state.get("critique")
     attempt = state.get("attempt", 0)
     max_attempts = state.get("max_attempts", settings.max_attempts)
@@ -88,12 +91,17 @@ def build_graph():
 
 
 def ask(question: str) -> str:
+    result = ask_with_trace(question)
+    return result["final_answer"]
+
+
+def ask_with_trace(question: str) -> RAGState:
     app = build_graph()
-    result = app.invoke(
+    return app.invoke(
         {
             "question": question,
             "attempt": 0,
             "max_attempts": settings.max_attempts,
+            "trace": [],
         }
     )
-    return result["final_answer"]
