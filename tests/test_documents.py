@@ -2,10 +2,13 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from self_healing_rag.documents import SourceDocument, chunk_documents, load_documents
+from self_healing_rag.documents import SUPPORTED_EXTENSIONS, SourceDocument, chunk_documents, load_documents
 
 
 class DocumentTests(unittest.TestCase):
+    def test_supported_extensions_include_pdf(self):
+        self.assertIn(".pdf", SUPPORTED_EXTENSIONS)
+
     def test_load_documents_reads_supported_files(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             docs_dir = Path(temp_dir)

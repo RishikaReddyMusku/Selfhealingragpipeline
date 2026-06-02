@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field
 
 from self_healing_rag.config import settings
 from self_healing_rag.graph import ask_with_trace
-from self_healing_rag.index import build_local_index
+from self_healing_rag.index import build_indexes
 
 
 WEB_DIR = Path(__file__).parent / "web"
@@ -38,6 +38,10 @@ class IngestRequest(BaseModel):
     output_path: str = Field(
         settings.local_index_path,
         description="Path where the local chunk index should be written.",
+    )
+    build_vector: bool = Field(
+        settings.retrieval_backend == "vector",
+        description="Whether to also build/update the Chroma vector index.",
     )
 
 
@@ -95,14 +99,17 @@ def health_check() -> dict[str, str]:
 @app.post("/ingest", response_model=IngestResponse)
 def ingest_documents(request: IngestRequest) -> IngestResponse:
     try:
-        chunks = build_local_index(
+        chunks = build_indexes(
             input_path=request.input_path,
             output_path=request.output_path,
+            build_vector=request.build_vector,
         )
     except FileNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
 
     return IngestResponse(
         chunks_indexed=len(chunks),

@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 
-SUPPORTED_EXTENSIONS = {".md", ".txt"}
+SUPPORTED_EXTENSIONS = {".md", ".pdf", ".txt"}
 
 
 @dataclass(frozen=True)
@@ -19,7 +19,7 @@ class DocumentChunk:
 
 
 def load_documents(input_path: str | Path) -> list[SourceDocument]:
-    """Load text-like documents from a file or directory."""
+    """Load supported source documents from a file or directory."""
     path = Path(input_path)
     if not path.exists():
         raise FileNotFoundError(f"Document path does not exist: {path}")
@@ -31,7 +31,7 @@ def load_documents(input_path: str | Path) -> list[SourceDocument]:
         if file_path.suffix.lower() not in SUPPORTED_EXTENSIONS:
             continue
 
-        content = file_path.read_text(encoding="utf-8").strip()
+        content = _read_document(file_path).strip()
         if content:
             documents.append(SourceDocument(content=content, source=str(file_path)))
 
@@ -86,4 +86,29 @@ def _iter_supported_files(directory: Path):
     for file_path in directory.rglob("*"):
         if file_path.is_file() and file_path.suffix.lower() in SUPPORTED_EXTENSIONS:
             yield file_path
+
+
+def _read_document(file_path: Path) -> str:
+    suffix = file_path.suffix.lower()
+    if suffix in {".md", ".txt"}:
+        return file_path.read_text(encoding="utf-8")
+
+    if suffix == ".pdf":
+        return _read_pdf(file_path)
+
+    return ""
+
+
+def _read_pdf(file_path: Path) -> str:
+    try:
+        from pypdf import PdfReader
+    except ModuleNotFoundError as exc:
+        raise RuntimeError(
+            "PDF ingestion requires the optional 'pypdf' dependency. "
+            "Install project dependencies with `pip install -e .`."
+        ) from exc
+
+    reader = PdfReader(str(file_path))
+    pages = [page.extract_text() or "" for page in reader.pages]
+    return "\n".join(page for page in pages if page.strip())
 

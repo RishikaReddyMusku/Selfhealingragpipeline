@@ -1,6 +1,28 @@
 from self_healing_rag.config import settings
-from self_healing_rag.retrieval import retrieve_from_local_index
+from self_healing_rag.llm import critique_grounded_answer, generate_grounded_answer
+from self_healing_rag.retrieval import retrieve_documents as retrieve_from_configured_backend
 from self_healing_rag.state import Critique, RAGState, RetrievedDocument, TraceEvent
+
+
+STOPWORDS = {
+    "a",
+    "an",
+    "and",
+    "are",
+    "does",
+    "for",
+    "how",
+    "in",
+    "is",
+    "it",
+    "of",
+    "or",
+    "the",
+    "this",
+    "to",
+    "what",
+    "why",
+}
 
 
 def append_trace(state: RAGState, step: str, status: str, detail: str) -> list[TraceEvent]:
@@ -46,7 +68,7 @@ def retrieve_documents(state: RAGState) -> RAGState:
             "trace": append_trace(state, "retrieve_documents", "skipped", "Query was empty."),
         }
 
-    docs: list[RetrievedDocument] = retrieve_from_local_index(
+    docs: list[RetrievedDocument] = retrieve_from_configured_backend(
         query,
         index_path=state.get("index_path", settings.local_index_path),
     )
@@ -64,20 +86,20 @@ def retrieve_documents(state: RAGState) -> RAGState:
 def grade_context(state: RAGState) -> RAGState:
     """Check whether retrieved context is good enough for generation."""
     docs = state.get("retrieved_docs", [])
-    if docs:
+    if _context_is_useful(state.get("rewritten_query", state["question"]), docs):
         return {
             "trace": append_trace(
                 state,
                 "grade_context",
                 "approved",
-                "Retrieved context is available for answer generation.",
+                "Retrieved context passed score and query-overlap checks.",
             )
         }
 
     attempt = state.get("attempt", 0) + 1
     critique: Critique = {
         "approved": False,
-        "reason": "No relevant context was retrieved.",
+        "reason": "Retrieved context was missing or too weak.",
         "retry_type": "rewrite_query",
         "feedback": "Try a broader query with more domain-specific terms.",
     }
@@ -88,7 +110,7 @@ def grade_context(state: RAGState) -> RAGState:
             state,
             "grade_context",
             "rejected",
-            "No relevant context was found, so the graph will retry retrieval.",
+            "Context quality was too weak, so the graph will retry retrieval.",
         ),
     }
 
@@ -96,24 +118,14 @@ def grade_context(state: RAGState) -> RAGState:
 def generate_answer(state: RAGState) -> RAGState:
     """Generate an answer grounded in retrieved context."""
     docs = state.get("retrieved_docs", [])
-    context = "\n".join(f"- {doc['content']}" for doc in docs)
-    sources = ", ".join(sorted({doc["source"] for doc in docs}))
-
-    answer = (
-        "A self-healing RAG pipeline improves a normal RAG flow by adding a "
-        "critic step after answer generation. The critic checks whether the "
-        "answer is grounded in retrieved context, complete, and safe to return. "
-        "If the answer is rejected, LangGraph routes the workflow back to query "
-        "rewriting, retrieval, or generation based on the failure reason.\n\n"
-        f"Context used:\n{context}\n\nSources: {sources}"
-    )
+    answer, mode = generate_grounded_answer(state["question"], docs)
     return {
         "answer": answer,
         "trace": append_trace(
             state,
             "generate_answer",
             "completed",
-            f"Generated an answer using {len(docs)} retrieved chunks.",
+            f"Generated an answer using {len(docs)} retrieved chunks via {mode} mode.",
         ),
     }
 
@@ -123,57 +135,15 @@ def critique_answer(state: RAGState) -> RAGState:
     answer = state.get("answer", "")
     docs = state.get("retrieved_docs", [])
     attempt = state.get("attempt", 0) + 1
-
-    if not docs:
-        critique: Critique = {
-            "approved": False,
-            "reason": "The answer has no supporting retrieved context.",
-            "retry_type": "retrieve_again",
-            "feedback": "Retrieve relevant documents before answering.",
-        }
-        return {
-            "critique": critique,
-            "attempt": attempt,
-            "trace": append_trace(
-                state,
-                "critique_answer",
-                "rejected",
-                critique["reason"],
-            ),
-        }
-
-    if "Sources:" not in answer:
-        critique = {
-            "approved": False,
-            "reason": "The answer does not include source citations.",
-            "retry_type": "regenerate",
-            "feedback": "Regenerate the answer with explicit source citations.",
-        }
-        return {
-            "critique": critique,
-            "attempt": attempt,
-            "trace": append_trace(
-                state,
-                "critique_answer",
-                "rejected",
-                critique["reason"],
-            ),
-        }
-
-    critique = {
-        "approved": True,
-        "reason": "The answer is grounded and includes sources.",
-        "retry_type": "accept",
-        "feedback": "No changes needed.",
-    }
+    critique, mode = critique_grounded_answer(state["question"], answer, docs)
     return {
         "critique": critique,
         "attempt": attempt,
         "trace": append_trace(
             state,
             "critique_answer",
-            "approved",
-            critique["reason"],
+            "approved" if critique["approved"] else "rejected",
+            f"{critique['reason']} ({mode} mode)",
         ),
     }
 
@@ -206,4 +176,31 @@ def fallback_answer(state: RAGState) -> RAGState:
             "completed",
             "Stopped after the retry budget was exhausted.",
         ),
+    }
+
+
+def _context_is_useful(query: str, docs: list[RetrievedDocument]) -> bool:
+    if not docs:
+        return False
+
+    best_score = max(doc["score"] for doc in docs)
+    if best_score < settings.min_context_score:
+        return False
+
+    query_terms = _important_terms(query)
+    if not query_terms:
+        return True
+
+    context_terms = _important_terms(" ".join(doc["content"] for doc in docs))
+    overlap = len(query_terms & context_terms) / len(query_terms)
+    return overlap >= settings.min_context_term_overlap
+
+
+def _important_terms(text: str) -> set[str]:
+    import re
+
+    return {
+        token.lower()
+        for token in re.findall(r"[a-zA-Z0-9]+", text)
+        if len(token) > 2 and token.lower() not in STOPWORDS
     }

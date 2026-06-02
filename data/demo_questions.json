@@ -1,0 +1,18 @@
+[
+  {
+    "question": "What makes this RAG pipeline self-healing?",
+    "expected_behavior": "Answer should mention critique, quality checks, retries, and source grounding."
+  },
+  {
+    "question": "Why is LangGraph useful for this project?",
+    "expected_behavior": "Answer should mention stateful workflows, conditional routing, and cycles."
+  },
+  {
+    "question": "How does the pipeline handle weak retrieval?",
+    "expected_behavior": "Answer should describe query rewriting or retrying retrieval."
+  },
+  {
+    "question": "What production monitoring tools does this project integrate with?",
+    "expected_behavior": "Answer should avoid inventing unsupported integrations and should fallback or say the context is insufficient."
+  }
+]

@@ -42,6 +42,30 @@ def build_local_index(
     return chunks
 
 
+def build_indexes(
+    input_path: str | Path,
+    output_path: str | Path = "data/index/chunks.jsonl",
+    vector_store_path: str | Path = "data/vector_store",
+    build_vector: bool = True,
+    chunk_size: int = 900,
+    chunk_overlap: int = 150,
+) -> list[DocumentChunk]:
+    """Build the inspectable JSONL index and optionally a Chroma vector index."""
+    chunks = build_local_index(
+        input_path=input_path,
+        output_path=output_path,
+        chunk_size=chunk_size,
+        chunk_overlap=chunk_overlap,
+    )
+
+    if build_vector:
+        from self_healing_rag.vector_store import build_vector_index
+
+        build_vector_index(chunks, persist_directory=vector_store_path)
+
+    return chunks
+
+
 def load_local_index(index_path: str | Path = "data/index/chunks.jsonl") -> list[DocumentChunk]:
     path = Path(index_path)
     if not path.exists():

@@ -17,6 +17,7 @@ dependencies = [
     "langchain-openai",
     "langgraph",
     "pydantic-settings",
+    "pypdf",
     "python-dotenv",
     "typer",
     "uvicorn",

@@ -2,6 +2,8 @@
 
 A Retrieval-Augmented Generation (RAG) system that critiques its own answers and retries when the answer is weak, unsupported, or incomplete.
 
+> Demo video: add your recorded Ollama walkthrough link here.
+
 This project uses LangGraph to model RAG as a stateful workflow:
 
 1. Rewrite the user query.
@@ -40,14 +42,19 @@ flowchart TD
 
 ## Project Status
 
-This repo currently contains the initial project skeleton and a local ingestion path:
+This repo contains a working MVP for a resume/demo project:
 
 - LangGraph state model
-- Workflow node stubs
+- Critic-driven retry routing
 - Routing logic for critic-driven retries
 - Local markdown/text document loading
+- PDF ingestion with `pypdf`
 - Local chunk index for first-pass retrieval
-- CLI entry point placeholder
+- Optional Chroma vector index with Ollama embeddings
+- CLI entry points
+- FastAPI API and built-in dashboard
+- Optional React frontend
+- Ollama support for free local Qwen/Llama demos
 - Sample source document
 - Roadmap for MVP development
 
@@ -57,8 +64,9 @@ This repo currently contains the initial project skeleton and a local ingestion 
 - LangGraph
 - LangChain
 - ChromaDB
+- Ollama for local Qwen/Llama inference
 - OpenAI-compatible chat and embedding models
-- FastAPI, planned for API serving
+- FastAPI
 - RAGAS or DeepEval, planned for evaluation
 
 ## Local Setup
@@ -70,7 +78,28 @@ pip install -e ".[dev]"
 cp .env.example .env
 ```
 
-Then add your API key to `.env`.
+For a free local demo with Ollama, keep:
+
+```env
+LLM_PROVIDER=ollama
+OLLAMA_MODEL=qwen2.5:7b-instruct
+USE_LLM=true
+LLM_FALLBACK_ENABLED=false
+```
+
+Then run a local model:
+
+```bash
+ollama pull qwen2.5:7b-instruct
+ollama pull nomic-embed-text
+ollama serve
+```
+
+You can also use a Llama model by changing `OLLAMA_MODEL`, for example
+`llama3.1:8b`.
+
+For OpenAI-compatible deployment, set `LLM_PROVIDER=openai` and add
+`OPENAI_API_KEY` to the environment.
 
 ## Usage
 
@@ -101,6 +130,18 @@ The `/ask` response includes the final answer, sources, critic verdict, attempt 
 
 Both the CLI and API use `data/index/chunks.jsonl` by default. Pass `--index` to the CLI or `index_path` to `/ask` when using a different local index.
 
+For vector retrieval, set `RETRIEVAL_BACKEND=vector`, pull the configured
+embedding model in Ollama, and ingest documents with vector indexing enabled.
+
+## Architecture Docs
+
+See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for runtime flow, component,
+and sequence diagrams.
+
+For a resume-friendly walkthrough, see [docs/DEMO_GUIDE.md](docs/DEMO_GUIDE.md).
+For the no-paid-API showcase strategy, see
+[docs/FREE_TIER_SHOWCASE.md](docs/FREE_TIER_SHOWCASE.md).
+
 ## Frontend
 
 The default frontend is served directly by FastAPI and does not require npm:
@@ -128,6 +169,20 @@ python3 -m compileall src
 PYTHONPATH=src python3 -m unittest discover -s tests
 ```
 
+## Evaluation
+
+Run the lightweight evaluation set:
+
+```bash
+self-healing-rag eval --questions data/demo_questions.json
+```
+
+The evaluator reports approval rate, citation rate, fallback rate, and average
+attempts. This gives a simple baseline before adding RAGAS or DeepEval.
+
 ## Resume Pitch
 
-Built a self-healing RAG pipeline using LangGraph that validates generated answers with a critic node and automatically retries retrieval or generation when responses are unsupported, incomplete, or low confidence.
+Built a self-healing RAG pipeline using LangGraph, FastAPI, and Ollama/Qwen that
+validates generated answers with a critic node and automatically retries
+retrieval or generation when responses are unsupported, incomplete, or low
+confidence.

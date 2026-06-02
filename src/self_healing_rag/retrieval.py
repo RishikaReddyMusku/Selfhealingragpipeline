@@ -9,6 +9,26 @@ from self_healing_rag.state import RetrievedDocument
 TOKEN_PATTERN = re.compile(r"[a-zA-Z0-9]+")
 
 
+def retrieve_documents(
+    query: str,
+    index_path: str = "data/index/chunks.jsonl",
+    top_k: int = 4,
+) -> list[RetrievedDocument]:
+    """Retrieve chunks from the configured backend."""
+    from self_healing_rag.config import settings
+
+    backend = settings.retrieval_backend.lower().strip()
+    if backend == "vector":
+        from self_healing_rag.vector_store import retrieve_from_vector_index
+
+        return retrieve_from_vector_index(query, top_k=top_k)
+
+    if backend == "local":
+        return retrieve_from_local_index(query, index_path=index_path, top_k=top_k)
+
+    raise ValueError("RETRIEVAL_BACKEND must be either 'vector' or 'local'.")
+
+
 def retrieve_from_local_index(
     query: str,
     index_path: str = "data/index/chunks.jsonl",
