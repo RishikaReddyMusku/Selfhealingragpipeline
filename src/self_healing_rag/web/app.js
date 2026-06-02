@@ -3,8 +3,11 @@ const errorEl = document.querySelector("#error");
 const verdictEl = document.querySelector("#verdict");
 const answerEl = document.querySelector("#answer");
 const attemptsEl = document.querySelector("#attempts");
+const totalElapsedMsEl = document.querySelector("#total-elapsed-ms");
 const sourceCountEl = document.querySelector("#source-count");
 const traceCountEl = document.querySelector("#trace-count");
+const retrievalAttemptsEl = document.querySelector("#retrieval-attempts");
+const generationAttemptsEl = document.querySelector("#generation-attempts");
 const critiqueEl = document.querySelector("#critique");
 const sourcesEl = document.querySelector("#sources");
 const traceEl = document.querySelector("#trace");
@@ -78,8 +81,11 @@ function renderAnswer(payload) {
   answerEl.textContent = payload.answer;
   answerEl.classList.remove("muted");
   attemptsEl.textContent = String(payload.attempts ?? 0);
+  totalElapsedMsEl.textContent = String(Math.round(payload.metrics?.total_elapsed_ms ?? 0));
   sourceCountEl.textContent = String(payload.sources?.length ?? 0);
   traceCountEl.textContent = String(payload.trace?.length ?? 0);
+  retrievalAttemptsEl.textContent = String(payload.metrics?.retrieval_attempts ?? 0);
+  generationAttemptsEl.textContent = String(payload.metrics?.generation_attempts ?? 0);
 
   renderCritique(payload.critique);
   renderSources(payload.sources ?? []);
@@ -123,11 +129,17 @@ function renderTrace(trace) {
         <li>
           <span class="trace-step">${escapeHtml(event.step)}</span>
           <span class="trace-status">${escapeHtml(event.status)}</span>
-          <p class="trace-detail">${escapeHtml(event.detail)}</p>
+          <p class="trace-detail">${escapeHtml(event.detail)}<br><small>${escapeHtml(formatTraceMeta(event))}</small></p>
         </li>
       `,
     )
     .join("");
+}
+
+function formatTraceMeta(event) {
+  const at = event?.at ? `at ${event.at}` : "at n/a";
+  const elapsed = Number.isFinite(event?.elapsed_ms) ? `${event.elapsed_ms} ms` : "n/a ms";
+  return `${at} | elapsed ${elapsed}`;
 }
 
 function setBusy(message) {

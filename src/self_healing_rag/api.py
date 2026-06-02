@@ -75,15 +75,26 @@ class TraceEventResponse(BaseModel):
     step: str
     status: str
     detail: str
+    at: str | None = None
+    elapsed_ms: float | None = None
+
+
+class ObservabilityMetricsResponse(BaseModel):
+    total_elapsed_ms: float
+    total_steps: int
+    retrieval_attempts: int
+    generation_attempts: int
 
 
 class AskResponse(BaseModel):
     answer: str
     attempts: int
     sources: list[str]
+    needs_clarification: bool = False
     retrieved_docs: list[RetrievedDocumentResponse]
     critique: CritiqueResponse | None
     trace: list[TraceEventResponse]
+    metrics: ObservabilityMetricsResponse
 
 
 @app.get("/", include_in_schema=False)
@@ -127,7 +138,9 @@ def ask_question(request: AskRequest) -> AskResponse:
         answer=result["final_answer"],
         attempts=result.get("attempt", 0),
         sources=sources,
+        needs_clarification=bool(result.get("needs_clarification", False)),
         retrieved_docs=retrieved_docs,
         critique=result.get("critique"),
         trace=result.get("trace", []),
+        metrics=result["metrics"],
     )

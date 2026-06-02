@@ -24,10 +24,19 @@ class Critique(TypedDict):
     feedback: str
 
 
-class TraceEvent(TypedDict):
+class TraceEvent(TypedDict, total=False):
     step: str
     status: str
     detail: str
+    at: str
+    elapsed_ms: float
+
+
+class ObservabilityMetrics(TypedDict):
+    total_elapsed_ms: float
+    total_steps: int
+    retrieval_attempts: int
+    generation_attempts: int
 
 
 class RAGState(TypedDict, total=False):
@@ -39,6 +48,13 @@ class RAGState(TypedDict, total=False):
     critique: Critique
     attempt: int
     max_attempts: int
+    retrieval_attempts: int
+    max_retrieval_attempts: int
+    generation_attempts: int
+    max_generation_attempts: int
+    run_started_at: float
+    run_started_iso: str
+    metrics: ObservabilityMetrics
     final_answer: str
     needs_clarification: bool
     trace: list[TraceEvent]

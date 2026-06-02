@@ -26,6 +26,9 @@ function App() {
   const approved = result?.critique?.approved ?? false;
   const sourceCount = result?.sources.length ?? 0;
   const traceCount = result?.trace.length ?? 0;
+  const runTimeMs = Math.round(result?.metrics.total_elapsed_ms ?? 0);
+  const retrievalRetries = result?.metrics.retrieval_attempts ?? 0;
+  const generationRetries = result?.metrics.generation_attempts ?? 0;
 
   const verdictLabel = useMemo(() => {
     if (!result?.critique) {
@@ -147,8 +150,11 @@ function App() {
 
       <section className="metrics-row" aria-label="Run metrics">
         <Metric label="Attempts" value={String(result?.attempts ?? 0)} />
+        <Metric label="Run Time (ms)" value={String(runTimeMs)} />
         <Metric label="Sources" value={String(sourceCount)} />
         <Metric label="Trace Events" value={String(traceCount)} />
+        <Metric label="Retrieval Retries" value={String(retrievalRetries)} />
+        <Metric label="Generation Retries" value={String(generationRetries)} />
       </section>
 
       <section className="details-grid">
@@ -208,7 +214,14 @@ function App() {
               <li key={`${event.step}-${index}`}>
                 <span className="trace-step">{event.step}</span>
                 <span className="trace-status">{event.status}</span>
-                <p>{event.detail}</p>
+                <p>
+                  {event.detail}
+                  <br />
+                  <small>
+                    {event.at ? `at ${event.at}` : "at n/a"} | elapsed{" "}
+                    {typeof event.elapsed_ms === "number" ? `${event.elapsed_ms} ms` : "n/a ms"}
+                  </small>
+                </p>
               </li>
             ))}
           </ol>

@@ -21,12 +21,43 @@ def retrieve_documents(
     if backend == "vector":
         from self_healing_rag.vector_store import retrieve_from_vector_index
 
-        return retrieve_from_vector_index(query, top_k=top_k)
+        try:
+            return retrieve_from_vector_index(query, top_k=top_k)
+        except Exception:
+            # Prefer graceful degradation to lexical retrieval over hard failure.
+            return retrieve_from_local_index(query, index_path=index_path, top_k=top_k)
+
+    if backend == "hybrid":
+        return retrieve_hybrid(query, index_path=index_path, top_k=top_k)
 
     if backend == "local":
         return retrieve_from_local_index(query, index_path=index_path, top_k=top_k)
 
-    raise ValueError("RETRIEVAL_BACKEND must be either 'vector' or 'local'.")
+    raise ValueError("RETRIEVAL_BACKEND must be one of 'vector', 'hybrid', or 'local'.")
+
+
+def retrieve_hybrid(
+    query: str,
+    index_path: str = "data/index/chunks.jsonl",
+    top_k: int = 4,
+) -> list[RetrievedDocument]:
+    """Combine lexical and vector retrieval, then rank and deduplicate."""
+    from self_healing_rag.vector_store import retrieve_from_vector_index
+
+    local_docs = retrieve_from_local_index(query, index_path=index_path, top_k=top_k * 2)
+    try:
+        vector_docs = retrieve_from_vector_index(query, top_k=top_k * 2)
+    except Exception:
+        vector_docs = []
+
+    merged: dict[tuple[str, str], RetrievedDocument] = {}
+    for doc in [*local_docs, *vector_docs]:
+        key = (doc["source"], doc["content"])
+        existing = merged.get(key)
+        if existing is None or doc["score"] > existing["score"]:
+            merged[key] = doc
+
+    return sorted(merged.values(), key=lambda item: item["score"], reverse=True)[:top_k]
 
 
 def retrieve_from_local_index(

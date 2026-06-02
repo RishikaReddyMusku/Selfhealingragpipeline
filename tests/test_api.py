@@ -45,6 +45,12 @@ class APITests(unittest.TestCase):
         self.assertGreaterEqual(payload["attempts"], 1)
         self.assertGreaterEqual(len(payload["trace"]), 5)
         self.assertIn("Sources:", payload["answer"])
+        self.assertIn("metrics", payload)
+        self.assertIn("total_elapsed_ms", payload["metrics"])
+        self.assertIn("retrieval_attempts", payload["metrics"])
+        self.assertIn("generation_attempts", payload["metrics"])
+        self.assertIn("at", payload["trace"][0])
+        self.assertIn("elapsed_ms", payload["trace"][0])
 
     def test_dashboard_serves_static_html(self):
         client = TestClient(app)

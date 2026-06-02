@@ -13,6 +13,8 @@ class Settings(BaseSettings):
     vector_collection_name: str = "self_healing_rag"
     local_index_path: str = "data/index/chunks.jsonl"
     max_attempts: int = 3
+    max_retrieval_retries: int = 2
+    max_generation_retries: int = 2
     min_context_score: float = 0.05
     min_context_term_overlap: float = 0.15
     use_llm: bool = False

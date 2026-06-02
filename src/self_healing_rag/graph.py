@@ -1,7 +1,10 @@
 from langgraph.graph import END, StateGraph
+from time import perf_counter
+from datetime import datetime, timezone
 
 from self_healing_rag.config import settings
 from self_healing_rag.nodes import (
+    clarify_question,
     critique_answer,
     fallback_answer,
     finalize_answer,
@@ -18,10 +21,13 @@ def route_after_context_grade(state: RAGState) -> str:
         return "generate_answer"
 
     critique = state.get("critique")
-    attempt = state.get("attempt", 0)
-    max_attempts = state.get("max_attempts", settings.max_attempts)
+    retrieval_attempts = state.get("retrieval_attempts", 0)
+    max_retrieval_attempts = state.get(
+        "max_retrieval_attempts",
+        settings.max_retrieval_retries,
+    )
 
-    if critique and attempt >= max_attempts:
+    if critique and retrieval_attempts >= max_retrieval_attempts:
         return "fallback_answer"
 
     if critique and critique["retry_type"] == "rewrite_query":
@@ -32,19 +38,31 @@ def route_after_context_grade(state: RAGState) -> str:
 
 def route_after_critique(state: RAGState) -> str:
     critique = state["critique"]
-    attempt = state.get("attempt", 0)
-    max_attempts = state.get("max_attempts", settings.max_attempts)
+    retrieval_attempts = state.get("retrieval_attempts", 0)
+    max_retrieval_attempts = state.get(
+        "max_retrieval_attempts",
+        settings.max_retrieval_retries,
+    )
+    generation_attempts = state.get("generation_attempts", 0)
+    max_generation_attempts = state.get(
+        "max_generation_attempts",
+        settings.max_generation_retries,
+    )
 
     if critique["approved"]:
         return "finalize_answer"
 
-    if attempt >= max_attempts:
-        return "fallback_answer"
+    if critique["retry_type"] == "clarify":
+        return "clarify_question"
 
     if critique["retry_type"] in {"rewrite_query", "retrieve_again"}:
+        if retrieval_attempts >= max_retrieval_attempts:
+            return "fallback_answer"
         return "rewrite_query"
 
     if critique["retry_type"] == "regenerate":
+        if generation_attempts >= max_generation_attempts:
+            return "fallback_answer"
         return "generate_answer"
 
     return "fallback_answer"
@@ -58,6 +76,7 @@ def build_graph():
     graph.add_node("grade_context", grade_context)
     graph.add_node("generate_answer", generate_answer)
     graph.add_node("critique_answer", critique_answer)
+    graph.add_node("clarify_question", clarify_question)
     graph.add_node("finalize_answer", finalize_answer)
     graph.add_node("fallback_answer", fallback_answer)
 
@@ -80,11 +99,13 @@ def build_graph():
         {
             "rewrite_query": "rewrite_query",
             "generate_answer": "generate_answer",
+            "clarify_question": "clarify_question",
             "finalize_answer": "finalize_answer",
             "fallback_answer": "fallback_answer",
         },
     )
     graph.add_edge("finalize_answer", END)
+    graph.add_edge("clarify_question", END)
     graph.add_edge("fallback_answer", END)
 
     return graph.compile()
@@ -97,12 +118,30 @@ def ask(question: str, index_path: str | None = None) -> str:
 
 def ask_with_trace(question: str, index_path: str | None = None) -> RAGState:
     app = build_graph()
-    return app.invoke(
+    run_started_at = perf_counter()
+    run_started_iso = datetime.now(timezone.utc).isoformat()
+    max_retrieval_attempts = settings.max_retrieval_retries
+    max_generation_attempts = settings.max_generation_retries
+    result = app.invoke(
         {
             "question": question,
             "index_path": index_path or settings.local_index_path,
             "attempt": 0,
             "max_attempts": settings.max_attempts,
+            "retrieval_attempts": 0,
+            "generation_attempts": 0,
+            "max_retrieval_attempts": max_retrieval_attempts,
+            "max_generation_attempts": max_generation_attempts,
+            "run_started_at": run_started_at,
+            "run_started_iso": run_started_iso,
             "trace": [],
         }
     )
+    trace = result.get("trace", [])
+    result["metrics"] = {
+        "total_elapsed_ms": round((perf_counter() - run_started_at) * 1000, 2),
+        "total_steps": len(trace),
+        "retrieval_attempts": result.get("retrieval_attempts", 0),
+        "generation_attempts": result.get("generation_attempts", 0),
+    }
+    return result

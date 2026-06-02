@@ -132,6 +132,13 @@ Both the CLI and API use `data/index/chunks.jsonl` by default. Pass `--index` to
 
 For vector retrieval, set `RETRIEVAL_BACKEND=vector`, pull the configured
 embedding model in Ollama, and ingest documents with vector indexing enabled.
+You can also set `RETRIEVAL_BACKEND=hybrid` to combine lexical and vector
+retrieval, with automatic fallback to lexical retrieval if vector retrieval fails.
+
+Retry budgets are configurable:
+
+- `MAX_RETRIEVAL_RETRIES` controls how many retrieval rewrites/retries are allowed.
+- `MAX_GENERATION_RETRIES` controls how many generation retries are allowed.
 
 ## Architecture Docs
 

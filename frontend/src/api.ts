@@ -17,15 +17,26 @@ export type TraceEvent = {
   step: string;
   status: string;
   detail: string;
+  at?: string;
+  elapsed_ms?: number;
+};
+
+export type ObservabilityMetrics = {
+  total_elapsed_ms: number;
+  total_steps: number;
+  retrieval_attempts: number;
+  generation_attempts: number;
 };
 
 export type AskResponse = {
   answer: string;
   attempts: number;
   sources: string[];
+  needs_clarification?: boolean;
   retrieved_docs: RetrievedDocument[];
   critique: Critique | null;
   trace: TraceEvent[];
+  metrics: ObservabilityMetrics;
 };
 
 export type IngestResponse = {
