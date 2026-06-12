@@ -3,116 +3,382 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Self-Healing RAG</title>
+    <title>Self-Healing RAG Pipeline | Control Surface</title>
     <link rel="stylesheet" href="/assets/styles.css" />
+    <!-- Google Fonts for premium typography -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   </head>
   <body>
-    <main class="shell">
-      <header class="topbar">
-        <div>
-          <p class="eyebrow">LangGraph Control Surface</p>
-          <h1>Self-Healing RAG Pipeline</h1>
+    <div class="app-container">
+      <!-- Sidebar for Configuration Settings -->
+      <aside class="sidebar">
+        <div class="sidebar-header">
+          <span class="logo-badge">RAG</span>
+          <h2>Settings</h2>
         </div>
-        <div class="status-pill" id="status">Ready</div>
-      </header>
+        
+        <form id="config-form" class="config-pane">
+          <div class="form-group">
+            <label for="cfg-llm-provider">LLM Provider</label>
+            <select id="cfg-llm-provider">
+              <option value="ollama">Ollama (Local/Free)</option>
+              <option value="openai">OpenAI (API)</option>
+            </select>
+          </div>
 
-      <section class="alert hidden" id="error" role="alert"></section>
+          <div class="form-group checkbox-group">
+            <label for="cfg-use-llm" class="checkbox-label">
+              <input type="checkbox" id="cfg-use-llm" />
+              <span>Use LLM</span>
+            </label>
+          </div>
 
-      <section class="workspace">
-        <div class="controls">
-          <form id="ingest-form" class="panel-form">
-            <label for="input-path">Document path</label>
-            <div class="action-row">
-              <input id="input-path" value="data/sample_docs" />
-              <button type="submit">Ingest</button>
+          <div class="form-group checkbox-group">
+            <label for="cfg-llm-fallback" class="checkbox-label">
+              <input type="checkbox" id="cfg-llm-fallback" />
+              <span>Fallback to Local Rules</span>
+            </label>
+          </div>
+
+          <div class="form-group">
+            <label for="cfg-retrieval-backend">Retrieval Backend</label>
+            <select id="cfg-retrieval-backend">
+              <option value="local">Local (Lexical TF-IDF)</option>
+              <option value="vector">Vector Store (ChromaDB)</option>
+              <option value="hybrid">Hybrid (Lexical + Vector)</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="cfg-rerank-backend">Reranking Backend</label>
+            <select id="cfg-rerank-backend">
+              <option value="none">None (Direct Retrieve)</option>
+              <option value="llm">LLM-based (Free)</option>
+              <option value="cross-encoder">Local Cross-Encoder (Free)</option>
+              <option value="cohere">Cohere Rerank API (Trial)</option>
+            </select>
+          </div>
+
+          <div id="cohere-key-group" class="form-group hidden">
+            <label for="cfg-cohere-key">Cohere API Key</label>
+            <input type="password" id="cfg-cohere-key" placeholder="Enter key..." />
+          </div>
+
+          <div class="form-group">
+            <label for="cfg-chat-model">OpenAI Chat Model</label>
+            <input type="text" id="cfg-chat-model" />
+          </div>
+
+          <div class="form-group">
+            <label for="cfg-ollama-model">Ollama Chat Model</label>
+            <input type="text" id="cfg-ollama-model" />
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="cfg-max-attempts">Max Loops</label>
+              <input type="number" id="cfg-max-attempts" min="1" max="10" />
             </div>
-          </form>
+            <div class="form-group">
+              <label for="cfg-min-score">Min Similarity</label>
+              <input type="number" id="cfg-min-score" step="0.01" min="0" max="1" />
+            </div>
+          </div>
 
-          <form id="ask-form" class="panel-form">
-            <label for="question">Question</label>
-            <textarea id="question" rows="7">What makes this RAG pipeline self-healing?</textarea>
-            <button type="submit">Ask</button>
-          </form>
+          <button type="submit" class="btn-primary full-width">Update Config</button>
+        </form>
+      </aside>
+
+      <!-- Main Workspace Area -->
+      <main class="main-content">
+        <!-- Top Navigation / Status Header -->
+        <header class="navbar">
+          <div class="brand">
+            <p class="tagline">Agentic LangGraph RAG</p>
+            <h1>Self-Healing RAG Pipeline</h1>
+          </div>
+          
+          <div class="tab-nav">
+            <button class="tab-btn active" data-tab="playground">Playground</button>
+            <button class="tab-btn" data-tab="eval-center">Evaluation Center</button>
+          </div>
+
+          <div class="status-badge" id="app-status">Ready</div>
+        </header>
+
+        <div id="error-banner" class="alert-banner hidden"></div>
+
+        <!-- Tab Content: Playground -->
+        <div id="tab-playground" class="tab-content active">
+          <div class="playground-layout">
+            <!-- Left Panel: Input & Output -->
+            <div class="input-output-pane">
+              <!-- Document Ingest panel -->
+              <section class="card compact">
+                <h3>Document Ingestion</h3>
+                <form id="ingest-form" class="ingest-row">
+                  <input id="input-path" value="data/sample_docs" placeholder="Directory path..." />
+                  <button type="submit" class="btn-secondary">Ingest</button>
+                </form>
+              </section>
+
+              <!-- Ask RAG panel -->
+              <section class="card">
+                <h3>Ask RAG Graph</h3>
+                <form id="ask-form">
+                  <textarea id="question" rows="4" placeholder="Type your question here...">What makes this RAG pipeline self-healing?</textarea>
+                  <button type="submit" class="btn-primary full-width">Run Query Pipeline</button>
+                </form>
+              </section>
+
+              <!-- Answer Response Card -->
+              <section class="card response-card">
+                <div class="card-header">
+                  <h3>Response</h3>
+                  <span class="badge" id="response-verdict">No Verdict</span>
+                </div>
+                <div id="answer-text" class="text-container empty">
+                  Submit a query to inspect the self-healing process and outputs.
+                </div>
+              </section>
+            </div>
+
+            <!-- Right Panel: Live LangGraph Visualizer -->
+            <div class="graph-pane">
+              <section class="card fill-height">
+                <h3>LangGraph Workflow State</h3>
+                
+                <!-- SVG/HTML-based interactive graph diagram -->
+                <div class="graph-visualizer">
+                  <div class="graph-node" id="node-rewrite_query">
+                    <div class="node-icon">✍️</div>
+                    <span class="node-label">Rewrite Query</span>
+                  </div>
+
+                  <div class="graph-arrow arrow-down" id="arrow-1"></div>
+
+                  <div class="graph-node" id="node-retrieve_documents">
+                    <div class="node-icon">🔍</div>
+                    <span class="node-label">Retrieve Docs</span>
+                  </div>
+
+                  <div class="graph-arrow arrow-down" id="arrow-2"></div>
+
+                  <div class="graph-node" id="node-grade_context">
+                    <div class="node-icon">⚖️</div>
+                    <span class="node-label">Grade Context</span>
+                  </div>
+
+                  <div class="conditional-branch-container">
+                    <div class="graph-arrow arrow-down" id="arrow-3"></div>
+                    <div class="branch-label">Useful?</div>
+                  </div>
+
+                  <!-- Parallel splits for Grade Context results -->
+                  <div class="split-nodes">
+                    <div class="graph-node" id="node-generate_answer">
+                      <div class="node-icon">🤖</div>
+                      <span class="node-label">Generate Answer</span>
+                    </div>
+                  </div>
+
+                  <div class="graph-arrow arrow-down" id="arrow-4"></div>
+
+                  <div class="graph-node" id="node-critique_answer">
+                    <div class="node-icon">🧐</div>
+                    <span class="node-label">Critique Answer</span>
+                  </div>
+
+                  <div class="conditional-branch-container">
+                    <div class="graph-arrow arrow-down" id="arrow-5"></div>
+                    <div class="branch-label">Approved?</div>
+                  </div>
+
+                  <!-- Final leaf nodes -->
+                  <div class="end-nodes">
+                    <div class="graph-node success" id="node-finalize_answer">
+                      <div class="node-icon">✅</div>
+                      <span class="node-label">Finalize Answer</span>
+                    </div>
+
+                    <div class="graph-node info" id="node-clarify_question">
+                      <div class="node-icon">💬</div>
+                      <span class="node-label">Clarify Query</span>
+                    </div>
+
+                    <div class="graph-node danger" id="node-fallback_answer">
+                      <div class="node-icon">⚠️</div>
+                      <span class="node-label">Fallback Answer</span>
+                    </div>
+                  </div>
+
+                  <!-- Visual indicators for loops -->
+                  <div class="graph-loop-arrow rewrite-loop hidden" id="loop-retrieval">
+                    <span>🔄 Retry Retrieval (Poor Context)</span>
+                  </div>
+                  <div class="graph-loop-arrow generate-loop hidden" id="loop-generation">
+                    <span>🔄 Retry Gen (Poor Answer)</span>
+                  </div>
+                </div>
+              </section>
+            </div>
+          </div>
+
+          <!-- Bottom Metrics & Details Panels -->
+          <div class="grid-three">
+            <section class="card">
+              <h3>Observability Metrics</h3>
+              <div class="metrics-list">
+                <div class="metric-item">
+                  <span class="metric-label">Execution Time</span>
+                  <span class="metric-val" id="metric-time">0 ms</span>
+                </div>
+                <div class="metric-item">
+                  <span class="metric-label">Total Steps</span>
+                  <span class="metric-val" id="metric-steps">0</span>
+                </div>
+                <div class="metric-item">
+                  <span class="metric-label">Total Attempts</span>
+                  <span class="metric-val" id="metric-attempts">0</span>
+                </div>
+                <div class="metric-item">
+                  <span class="metric-label">Retrieval Retries</span>
+                  <span class="metric-val" id="metric-retrieval-retries">0</span>
+                </div>
+                <div class="metric-item">
+                  <span class="metric-label">Generation Retries</span>
+                  <span class="metric-val" id="metric-generation-retries">0</span>
+                </div>
+              </div>
+            </section>
+
+            <section class="card">
+              <h3>Critic Feedback</h3>
+              <div id="critic-details" class="detail-text empty-state">
+                No active critique traces available.
+              </div>
+            </section>
+
+            <section class="card">
+              <h3>Retrieved Chunks</h3>
+              <ul id="retrieved-sources" class="sources-list-pane">
+                <li class="empty-state">No context documents loaded yet.</li>
+              </ul>
+            </section>
+          </div>
+
+          <!-- Detailed Step Execution Trace -->
+          <section class="card trace-card">
+            <h3>Workflow Trace Timeline</h3>
+            <div class="timeline-container">
+              <ol id="timeline-trace" class="timeline-trace-list">
+                <li class="empty-state">No traces loaded. Execute a pipeline query to view steps.</li>
+              </ol>
+            </div>
+          </section>
         </div>
 
-        <section class="answer-panel">
-          <div class="panel-header">
-            <div>
-              <p class="eyebrow">Grounded Response</p>
-              <h2>Answer</h2>
+        <!-- Tab Content: Evaluation Center -->
+        <div id="tab-eval-center" class="tab-content">
+          <div class="eval-layout">
+            <section class="card flex-row justify-between align-center">
+              <div>
+                <h2>Ragas & Pipeline Evaluation Dashboard</h2>
+                <p class="muted-text">Assess faithfulness, relevance, citation coverage, and latency over test questions.</p>
+              </div>
+              <button id="run-eval-btn" class="btn-primary">Run Evaluation Suite</button>
+            </section>
+
+            <!-- Grid of evaluation results -->
+            <div class="eval-grid">
+              <!-- Ragas LLM Metrics Card -->
+              <section class="card eval-metrics-card">
+                <h3>Ragas AI Metrics (LLM-as-a-Judge)</h3>
+                <div class="ragas-meters">
+                  <div class="meter-box">
+                    <div class="circular-progress" id="progress-faithfulness" data-value="0.0">
+                      <span class="progress-value">0%</span>
+                    </div>
+                    <span class="meter-label">Faithfulness</span>
+                  </div>
+                  <div class="meter-box">
+                    <div class="circular-progress" id="progress-relevance" data-value="0.0">
+                      <span class="progress-value">0%</span>
+                    </div>
+                    <span class="meter-label">Answer Relevance</span>
+                  </div>
+                  <div class="meter-box">
+                    <div class="circular-progress" id="progress-precision" data-value="0.0">
+                      <span class="progress-value">0%</span>
+                    </div>
+                    <span class="meter-label">Context Precision</span>
+                  </div>
+                  <div class="meter-box">
+                    <div class="circular-progress" id="progress-recall" data-value="0.0">
+                      <span class="progress-value">0%</span>
+                    </div>
+                    <span class="meter-label">Context Recall</span>
+                  </div>
+                </div>
+                <div class="metrics-note warning" id="ragas-disabled-warning">
+                  <strong>Note:</strong> Ragas libraries or keys not detected. Displaying deterministic fallback scores.
+                </div>
+              </section>
+
+              <!-- Custom Pipeline Metrics Card -->
+              <section class="card">
+                <h3>Pipeline Performance Summary</h3>
+                <div class="summary-stats">
+                  <div class="stat-box">
+                    <span class="stat-num" id="eval-approval-rate">0%</span>
+                    <span class="stat-lbl">Critic Approval Rate</span>
+                  </div>
+                  <div class="stat-box">
+                    <span class="stat-num" id="eval-citation-rate">0%</span>
+                    <span class="stat-lbl">Citation Compliance</span>
+                  </div>
+                  <div class="stat-box">
+                    <span class="stat-num" id="eval-fallback-rate">0%</span>
+                    <span class="stat-lbl">Fallback Avoidance</span>
+                  </div>
+                  <div class="stat-box">
+                    <span class="stat-num" id="eval-avg-loops">0.0</span>
+                    <span class="stat-lbl">Average Attempts</span>
+                  </div>
+                </div>
+              </section>
             </div>
-            <span class="verdict" id="verdict">No verdict</span>
-          </div>
-          <p id="answer" class="answer-text muted">Run a question to see the critic-reviewed answer.</p>
-        </section>
-      </section>
 
-      <section class="metrics">
-        <article>
-          <span>Attempts</span>
-          <strong id="attempts">0</strong>
-        </article>
-        <article>
-          <span>Run Time (ms)</span>
-          <strong id="total-elapsed-ms">0</strong>
-        </article>
-        <article>
-          <span>Sources</span>
-          <strong id="source-count">0</strong>
-        </article>
-        <article>
-          <span>Trace Events</span>
-          <strong id="trace-count">0</strong>
-        </article>
-        <article>
-          <span>Retrieval Retries</span>
-          <strong id="retrieval-attempts">0</strong>
-        </article>
-        <article>
-          <span>Generation Retries</span>
-          <strong id="generation-attempts">0</strong>
-        </article>
-      </section>
-
-      <section class="details">
-        <article class="detail-panel">
-          <div class="panel-header compact">
-            <div>
-              <p class="eyebrow">Critic</p>
-              <h2>Verdict</h2>
-            </div>
-          </div>
-          <dl id="critique" class="definition-list">
-            <dt>Reason</dt>
-            <dd class="muted">Pending</dd>
-          </dl>
-        </article>
-
-        <article class="detail-panel">
-          <div class="panel-header compact">
-            <div>
-              <p class="eyebrow">Retrieval</p>
-              <h2>Sources</h2>
-            </div>
-          </div>
-          <ul id="sources" class="source-list">
-            <li class="muted">Pending</li>
-          </ul>
-        </article>
-      </section>
-
-      <section class="trace-panel">
-        <div class="panel-header compact">
-          <div>
-            <p class="eyebrow">LangGraph</p>
-            <h2>Workflow Trace</h2>
+            <!-- Detailed Evaluation Table -->
+            <section class="card table-card">
+              <h3>Detailed Evaluation Records</h3>
+              <div class="table-container">
+                <table class="eval-table">
+                  <thead>
+                    <tr>
+                      <th>Question</th>
+                      <th>Expected Answer Class</th>
+                      <th>Approved?</th>
+                      <th>Attempts</th>
+                      <th>Sources Cited</th>
+                      <th>Used Fallback?</th>
+                      <th>Answer Preview</th>
+                    </tr>
+                  </thead>
+                  <tbody id="eval-table-body">
+                    <tr>
+                      <td colspan="7" class="empty-state">No evaluations executed. Click "Run Evaluation Suite" above to benchmark.</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </section>
           </div>
         </div>
-        <ol id="trace" class="trace-list">
-          <li class="muted">Pending</li>
-        </ol>
-      </section>
-    </main>
+      </main>
+    </div>
 
     <script src="/assets/app.js"></script>
   </body>

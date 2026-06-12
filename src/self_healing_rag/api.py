@@ -97,6 +97,26 @@ class AskResponse(BaseModel):
     metrics: ObservabilityMetricsResponse
 
 
+class ConfigUpdateRequest(BaseModel):
+    use_llm: bool | None = None
+    llm_fallback_enabled: bool | None = None
+    llm_provider: str | None = None
+    retrieval_backend: str | None = None
+    rerank_backend: str | None = None
+    chat_model: str | None = None
+    ollama_model: str | None = None
+    max_attempts: int | None = None
+    max_retrieval_retries: int | None = None
+    max_generation_retries: int | None = None
+    min_context_score: float | None = None
+    cohere_api_key: str | None = None
+
+
+class EvaluateRequest(BaseModel):
+    questions_path: str = Field("data/demo_questions.json")
+    index_path: str | None = None
+
+
 @app.get("/", include_in_schema=False)
 def dashboard() -> FileResponse:
     return FileResponse(WEB_DIR / "index.html")
@@ -144,3 +164,42 @@ def ask_question(request: AskRequest) -> AskResponse:
         trace=result.get("trace", []),
         metrics=result["metrics"],
     )
+
+
+@app.get("/config")
+def get_config() -> dict:
+    return {
+        "use_llm": settings.use_llm,
+        "llm_fallback_enabled": settings.llm_fallback_enabled,
+        "llm_provider": settings.llm_provider,
+        "retrieval_backend": settings.retrieval_backend,
+        "rerank_backend": settings.rerank_backend,
+        "chat_model": settings.chat_model,
+        "ollama_model": settings.ollama_model,
+        "max_attempts": settings.max_attempts,
+        "max_retrieval_retries": settings.max_retrieval_retries,
+        "max_generation_retries": settings.max_generation_retries,
+        "min_context_score": settings.min_context_score,
+        "cohere_api_key": settings.cohere_api_key,
+    }
+
+
+@app.post("/config")
+def update_config(request: ConfigUpdateRequest) -> dict[str, str]:
+    for key, value in request.dict(exclude_unset=True).items():
+        if hasattr(settings, key):
+            setattr(settings, key, value)
+    return {"status": "success"}
+
+
+@app.post("/evaluate")
+def trigger_evaluation(request: EvaluateRequest):
+    from self_healing_rag.evaluation import run_evaluation
+    try:
+        summary = run_evaluation(
+            questions_path=request.questions_path,
+            index_path=request.index_path,
+        )
+        return summary
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))

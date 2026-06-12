@@ -14,26 +14,143 @@ def retrieve_documents(
     index_path: str = "data/index/chunks.jsonl",
     top_k: int = 4,
 ) -> list[RetrievedDocument]:
-    """Retrieve chunks from the configured backend."""
+    """Retrieve chunks from the configured backend, with optional reranking."""
     from self_healing_rag.config import settings
 
     backend = settings.retrieval_backend.lower().strip()
+    rerank_backend = settings.rerank_backend.lower().strip()
+
+    retrieve_k = top_k
+    if rerank_backend != "none":
+        retrieve_k = top_k * settings.rerank_candidates_factor
+
+    docs: list[RetrievedDocument] = []
     if backend == "vector":
         from self_healing_rag.vector_store import retrieve_from_vector_index
-
         try:
-            return retrieve_from_vector_index(query, top_k=top_k)
+            docs = retrieve_from_vector_index(query, top_k=retrieve_k)
         except Exception:
             # Prefer graceful degradation to lexical retrieval over hard failure.
-            return retrieve_from_local_index(query, index_path=index_path, top_k=top_k)
+            docs = retrieve_from_local_index(query, index_path=index_path, top_k=retrieve_k)
+    elif backend == "hybrid":
+        docs = retrieve_hybrid(query, index_path=index_path, top_k=retrieve_k)
+    elif backend == "local":
+        docs = retrieve_from_local_index(query, index_path=index_path, top_k=retrieve_k)
+    else:
+        raise ValueError("RETRIEVAL_BACKEND must be one of 'vector', 'hybrid', or 'local'.")
 
-    if backend == "hybrid":
-        return retrieve_hybrid(query, index_path=index_path, top_k=top_k)
+    if rerank_backend != "none" and docs:
+        docs = rerank_documents(query, docs, top_k=top_k)
+    else:
+        docs = docs[:top_k]
 
-    if backend == "local":
-        return retrieve_from_local_index(query, index_path=index_path, top_k=top_k)
+    return docs
 
-    raise ValueError("RETRIEVAL_BACKEND must be one of 'vector', 'hybrid', or 'local'.")
+
+def rerank_documents(
+    query: str,
+    docs: list[RetrievedDocument],
+    top_k: int = 4,
+) -> list[RetrievedDocument]:
+    """Sort and prune documents using the configured rerank backend."""
+    from self_healing_rag.config import settings
+    backend = settings.rerank_backend.lower().strip()
+
+    if backend == "llm":
+        from self_healing_rag.llm import rerank_with_llm
+        ranked = rerank_with_llm(query, docs)
+    elif backend == "cohere":
+        if not settings.cohere_api_key:
+            print("Cohere Rerank key is missing. Set COHERE_API_KEY. Falling back.")
+            ranked = docs
+        else:
+            ranked = rerank_with_cohere(
+                query, docs, settings.cohere_api_key, settings.cohere_model
+            )
+    elif backend == "cross-encoder":
+        ranked = rerank_with_cross_encoder(query, docs, settings.cross_encoder_model)
+    else:
+        ranked = docs
+
+    return ranked[:top_k]
+
+
+def rerank_with_cohere(
+    query: str,
+    docs: list[RetrievedDocument],
+    api_key: str,
+    model: str,
+) -> list[RetrievedDocument]:
+    import json
+    from urllib import request
+
+    try:
+        payload = {
+            "model": model,
+            "query": query,
+            "documents": [doc["content"] for doc in docs],
+        }
+        body = json.dumps(payload).encode("utf-8")
+        http_request = request.Request(
+            "https://api.cohere.com/v1/rerank",
+            data=body,
+            headers={
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {api_key}",
+            },
+            method="POST",
+        )
+        with request.urlopen(http_request, timeout=30) as response:
+            data = json.loads(response.read().decode("utf-8"))
+
+        scored_docs = []
+        for result in data.get("results", []):
+            idx = result["index"]
+            score = result["relevance_score"]
+            doc = docs[idx].copy()
+            doc["score"] = score
+            scored_docs.append(doc)
+
+        returned_indices = {res["index"] for res in data.get("results", [])}
+        for idx, doc in enumerate(docs):
+            if idx not in returned_indices:
+                doc_copy = doc.copy()
+                doc_copy["score"] = 0.0
+                scored_docs.append(doc_copy)
+
+        return sorted(scored_docs, key=lambda x: x["score"], reverse=True)
+    except Exception as exc:
+        print(f"Cohere Rerank failed, returning original order: {exc}")
+        return docs
+
+
+def rerank_with_cross_encoder(
+    query: str,
+    docs: list[RetrievedDocument],
+    model_name: str,
+) -> list[RetrievedDocument]:
+    try:
+        from sentence_transformers import CrossEncoder
+    except ImportError:
+        print("sentence-transformers not installed. Install with `pip install sentence-transformers` to use local cross-encoders.")
+        return docs
+
+    try:
+        model = CrossEncoder(model_name)
+        pairs = [[query, doc["content"]] for doc in docs]
+        scores = model.predict(pairs)
+
+        scored_docs = []
+        for doc, score in zip(docs, scores):
+            doc_copy = doc.copy()
+            doc_copy["score"] = float(score)
+            scored_docs.append(doc_copy)
+
+        return sorted(scored_docs, key=lambda x: x["score"], reverse=True)
+    except Exception as exc:
+        print(f"Local CrossEncoder Rerank failed, returning original order: {exc}")
+        return docs
+
 
 
 def retrieve_hybrid(

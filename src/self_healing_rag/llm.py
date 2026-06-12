@@ -201,12 +201,20 @@ def _extract_json_object(raw_response: str) -> str:
         text = text.removeprefix("```json").removeprefix("```").strip()
         text = text.removesuffix("```").strip()
 
-    start = text.find("{")
-    end = text.rfind("}")
-    if start == -1 or end == -1 or end < start:
-        return text
+    start_obj = text.find("{")
+    start_arr = text.find("[")
 
-    return text[start : end + 1]
+    if start_arr != -1 and (start_obj == -1 or start_arr < start_obj):
+        end = text.rfind("]")
+        if end != -1:
+            return text[start_arr : end + 1]
+
+    if start_obj != -1:
+        end = text.rfind("}")
+        if end != -1:
+            return text[start_obj : end + 1]
+
+    return text
 
 
 def _format_context(docs: list[RetrievedDocument]) -> str:
@@ -235,3 +243,49 @@ def _llm_fallback_enabled() -> bool:
         return True
 
     return settings.llm_fallback_enabled
+
+
+def rerank_with_llm(query: str, docs: list[RetrievedDocument]) -> list[RetrievedDocument]:
+    """Score document relevance to the query using the configured LLM."""
+    if not docs:
+        return []
+
+    formatted_docs = []
+    for idx, doc in enumerate(docs):
+        formatted_docs.append(f"--- Document Index: {idx} ---\nContent: {doc['content']}\n")
+
+    prompt = (
+        "You are an expert RAG search reranker. Evaluate the relevance of the following "
+        "documents to the search query. Score each document from 0 to 10, where 10 is "
+        "highly relevant and directly answers the query, and 0 is completely irrelevant.\n\n"
+        f"Search Query: {query}\n\n"
+        "Documents:\n" + "\n".join(formatted_docs) + "\n"
+        "Return ONLY a valid JSON list of objects with keys 'index' and 'score', e.g.:\n"
+        '[{"index": 0, "score": 8.5}, {"index": 1, "score": 2.0}, ...]\n'
+        "Do not include any explanation or markdown formatting other than the JSON list."
+    )
+
+    try:
+        response_text = _chat_with_configured_provider(prompt)
+        import json
+        parsed = json.loads(_extract_json_object(response_text))
+        
+        scores = {}
+        for item in parsed:
+            idx = int(item["index"])
+            score = float(item["score"])
+            scores[idx] = score
+
+        scored_docs = []
+        for idx, doc in enumerate(docs):
+            s = scores.get(idx, 0.0)
+            normalized_score = s / 10.0
+            doc_copy = doc.copy()
+            doc_copy["score"] = normalized_score
+            scored_docs.append(doc_copy)
+
+        return sorted(scored_docs, key=lambda x: x["score"], reverse=True)
+    except Exception as exc:
+        print(f"LLM Rerank failed, returning original order: {exc}")
+        return docs
+

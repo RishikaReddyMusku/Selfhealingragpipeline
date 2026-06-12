@@ -19,6 +19,12 @@ class Settings(BaseSettings):
     min_context_term_overlap: float = 0.15
     use_llm: bool = False
     llm_fallback_enabled: bool = False
+    rerank_backend: str = "none"
+    rerank_top_k: int = 4
+    rerank_candidates_factor: int = 3
+    cohere_api_key: str | None = None
+    cohere_model: str = "rerank-english-v3.0"
+    cross_encoder_model: str = "BAAI/bge-reranker-base"
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 

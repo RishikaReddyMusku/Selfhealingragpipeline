@@ -27,6 +27,20 @@ dependencies = [
 dev = [
     "ruff",
 ]
+ragas = [
+    # Ragas evaluation (free-tier: uses Ollama if OPENAI_API_KEY is absent)
+    "ragas",
+    "datasets>=4.0.0",
+    "pandas",
+    "jinja2",
+]
+rerank = [
+    # Local cross-encoder reranking — fully free, no API key needed
+    "sentence-transformers",
+    # Cohere Rerank API — free trial tier, set COHERE_API_KEY in .env
+    "cohere",
+]
+
 
 [project.scripts]
 self-healing-rag = "self_healing_rag.cli:app"
